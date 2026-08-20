@@ -25,6 +25,8 @@ namespace Peeker.Module
 
             // Visual
             Register(new ESPModule());
+            Register(new HUDModule());
+            Register(new NightVisionModule());
 
             // Movement
 
@@ -106,6 +108,13 @@ namespace Peeker.Module
                     _logger?.LogInfo($"{module.Name} -> {(module.Toggled ? "ON" : "OFF")}");
                 }
             }
+        }
+        
+        public void OnGUI()
+        {
+            foreach (var module in this)
+                if (module.Toggled)
+                    module.OnGUI();
         }
     }
 }

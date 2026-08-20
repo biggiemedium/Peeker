@@ -1,4 +1,5 @@
-﻿using BepInEx;
+﻿using System;
+using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
 using UnityEngine.InputSystem;
@@ -27,18 +28,18 @@ namespace Peeker
             Peeker = new Peeker(Logger);
         }
 
-        private int _f;
         private void Update()
         {
-            if (_f++ % 300 == 0)
-            {
-                Logger.LogInfo($"tick {_f} kb={(Keyboard.current == null ? "NULL" : "ok")}");
-            }
-                
             try { Peeker.Update(); }
             catch (System.Exception ex) { Logger.LogError(ex); }
         }
-        
+
+        private void OnGUI()
+        {
+            try { Peeker.OnGUI(); }
+            catch (System.Exception ex) { Plugin.Log.LogError(ex); }
+        }
+
         private void OnEnable()  => Logger.LogWarning("OnEnable");
         private void OnDisable() => Logger.LogWarning("OnDisable");
         private void OnDestroy() => Logger.LogWarning("OnDestroy");

@@ -53,6 +53,21 @@
             <HintPath>$(GameDir)\Lethal Company_Data\Managed\Unity.InputSystem.dll</HintPath>
             <Private>False</Private>
         </Reference>
+
+        <Reference Include="Unity.Netcode.Runtime">
+            <HintPath>$(GameDir)\Lethal Company_Data\Managed\Unity.Netcode.Runtime.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+
+        <Reference Include="UnityEngine.TextRenderingModule">
+            <HintPath>$(GameDir)\Lethal Company_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+
+        <Reference Include="UnityEngine.PhysicsModule">
+            <HintPath>$(GameDir)\Lethal Company_Data\Managed\UnityEngine.PhysicsModule.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
     </ItemGroup>
 
     <!-- Automatically copy mod into BepInEx -->

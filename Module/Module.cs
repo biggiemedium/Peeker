@@ -72,5 +72,7 @@ namespace Peeker.Module
         protected abstract void OnDisabled();
 
         public virtual void Update() { }
+        
+        public virtual void OnGUI() { }
     }
 }
