@@ -4,10 +4,10 @@ using UnityEngine.InputSystem;
 
 namespace Peeker.Module
 {
-    public abstract class Module
+    public abstract class Module : SettingsHolder
     {
         public string Name { get; private set; }
-        
+
         public Key Keybind { get; private set; }
 
         public bool Toggled { get; private set; }
@@ -72,7 +72,7 @@ namespace Peeker.Module
         protected abstract void OnDisabled();
 
         public virtual void Update() { }
-        
+
         public virtual void OnGUI() { }
     }
 }

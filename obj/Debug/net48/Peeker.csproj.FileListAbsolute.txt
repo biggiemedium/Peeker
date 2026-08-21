@@ -1,0 +1,10 @@
+C:\Users\James\RiderProjects\Peeker\bin\Debug\net48\Peeker.dll
+C:\Users\James\RiderProjects\Peeker\bin\Debug\net48\Peeker.pdb
+C:\Users\James\RiderProjects\Peeker\obj\Debug\net48\Peeker.csproj.AssemblyReference.cache
+C:\Users\James\RiderProjects\Peeker\obj\Debug\net48\Peeker.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\James\RiderProjects\Peeker\obj\Debug\net48\Peeker.AssemblyInfoInputs.cache
+C:\Users\James\RiderProjects\Peeker\obj\Debug\net48\Peeker.AssemblyInfo.cs
+C:\Users\James\RiderProjects\Peeker\obj\Debug\net48\Peeker.csproj.CoreCompileInputs.cache
+C:\Users\James\RiderProjects\Peeker\obj\Debug\net48\Peeker.dll
+C:\Users\James\RiderProjects\Peeker\obj\Debug\net48\Peeker.pdb
+C:\Users\James\RiderProjects\Peeker\obj\Debug\net48\Peeker.sourcelink.json

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using BepInEx.Logging;
+using Peeker.Module.Impl;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -25,10 +26,10 @@ namespace Peeker.Module
 
             // Visual
             Register(new ESPModule());
-            Register(new HUDModule());
             Register(new NightVisionModule());
 
             // Movement
+            Register(new SpeedModule());
 
             // Combat
 
