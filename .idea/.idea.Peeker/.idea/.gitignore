@@ -11,3 +11,7 @@
 # Datasource local storage ignored files
 /dataSources/
 /dataSources.local.xml
+#output obj's
+/obj/
+/bin/
+Peeker.sln.DotSettings.user
