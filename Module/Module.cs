@@ -30,6 +30,8 @@ namespace Peeker.Module
         }
 
         public void Toggle() => SetToggled(!Toggled);
+        
+        public void SetKeybind(Key key) => Keybind = key;
 
         public void SetToggled(bool value)
         {

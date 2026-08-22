@@ -40,11 +40,6 @@
             <Private>False</Private>
         </Reference>
 
-        <Reference Include="UnityEngine.IMGUIModule">
-            <HintPath>$(GameDir)\Lethal Company_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
-            <Private>False</Private>
-        </Reference>
-
         <Reference Include="UnityEngine.InputLegacyModule">
             <HintPath>$(GameDir)\Lethal Company_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
             <Private>false</Private>
@@ -68,6 +63,31 @@
             <HintPath>$(GameDir)\Lethal Company_Data\Managed\UnityEngine.PhysicsModule.dll</HintPath>
             <Private>False</Private>
         </Reference>
+        
+        <Reference Include="UnityEngine.UI">
+            <HintPath>$(GameDir)\Lethal Company_Data\Managed\UnityEngine.UI.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+
+        <Reference Include="UnityEngine.UIModule">
+            <HintPath>$(GameDir)\Lethal Company_Data\Managed\UnityEngine.UIModule.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+
+        <Reference Include="Unity.TextMeshPro">
+            <HintPath>$(GameDir)\Lethal Company_Data\Managed\Unity.TextMeshPro.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+
+        <Reference Include="UnityEngine.IMGUIModule">
+            <HintPath>$(GameDir)\Lethal Company_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+        
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="UI\" />
     </ItemGroup>
 
     <!-- Automatically copy mod into BepInEx -->

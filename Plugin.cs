@@ -2,6 +2,7 @@
 using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
+using Peeker.UI;
 using UnityEngine.InputSystem;
 using UnityEngine.PlayerLoop;
 
@@ -19,6 +20,8 @@ namespace Peeker
         public Peeker Peeker { get; private set; }
         
         internal static ManualLogSource Log;
+        
+        private bool _menuInitialized = false;
 
         private void Awake()
         {
@@ -26,6 +29,17 @@ namespace Peeker
             Log = Logger; // expose it statically
             Logger.LogWarning($"=== PEEKER BUILD {System.DateTime.Now:HH:mm:ss} ===");
             Peeker = new Peeker(Logger);
+        }
+
+        private void Start()
+        {
+            // Initialize the menu controller after the scene is loaded
+            if (!_menuInitialized)
+            {
+                Logger.LogInfo("[Peeker] Initializing menu controller in Start()...");
+                Peeker.Menu = PeekerMenuController.Create(Peeker.ModuleManager);
+                _menuInitialized = true;
+            }
         }
 
         private void Update()

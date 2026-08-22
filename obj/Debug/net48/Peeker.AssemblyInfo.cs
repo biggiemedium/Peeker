@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Peeker")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9b36faa5c80b8c15cdd981ab9d0cbb7a6c470cf1")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ec49b8397c570bf2c778ef934d75ef064b91b991")]
 [assembly: System.Reflection.AssemblyProductAttribute("Peeker")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Peeker")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

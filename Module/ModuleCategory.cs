@@ -5,6 +5,6 @@
         Combat,
         Movement,
         Visual,
-        Misc
+        Notifications
     }
 }
