@@ -101,10 +101,16 @@ namespace Peeker.Module
         public void Update()
         {
             var kb = Keyboard.current;
+
+            // While the menu is up, the keyboard belongs to the UI: otherwise the very
+            // key you are rebinding also toggles its module, and typing in the menu
+            // fires hotkeys behind it.
+            bool hotkeysLive = kb != null && !global::Peeker.Peeker.MenuOpen;
+
             foreach (var module in this)
             {
                 if (module.Toggled) module.Update();
-                if (kb == null || module.Keybind == Key.None) continue;
+                if (!hotkeysLive || module.Keybind == Key.None) continue;
                 if (kb[module.Keybind].wasPressedThisFrame)
                 {
                     module.Toggle();

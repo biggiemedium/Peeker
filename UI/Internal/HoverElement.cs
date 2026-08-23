@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -7,67 +8,92 @@ namespace Peeker.UI.Internal
 {
     /// <summary>
     /// The design leans on CSS's <c>style-hover</c> for almost every interactive
-    /// element (rows, tabs, buttons). This is the uGUI equivalent: swap an
-    /// Image/TMP color pair on enter/exit and report clicks (left + right).
+    /// element (rows, tabs, buttons). This is the uGUI equivalent: swap
+    /// Image/TMP/border color pairs on enter/exit and report clicks (left + right).
     /// </summary>
     public class HoverElement : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
     {
         public Action Clicked;
         public Action RightClicked;
 
-        private Graphic[] _watchedGraphics = Array.Empty<Graphic>();
-        private Color[] _normalColors = Array.Empty<Color>();
-        private Color[] _hoverColors = Array.Empty<Color>();
+        private readonly List<Graphic> _graphics = new List<Graphic>();
+        private readonly List<Color> _graphicNormal = new List<Color>();
+        private readonly List<Color> _graphicHover = new List<Color>();
+
+        private readonly List<UiFactory.BorderHandle> _borders = new List<UiFactory.BorderHandle>();
+        private readonly List<Color> _borderNormal = new List<Color>();
+        private readonly List<Color> _borderHover = new List<Color>();
+
         private bool _hovering;
 
         /// <summary>Register a graphic (Image or TMP text) whose color should swap on hover.</summary>
         public void WatchColor(Graphic graphic, Color normal, Color hover)
         {
-            int i = _watchedGraphics.Length;
-            Array.Resize(ref _watchedGraphics, i + 1);
-            Array.Resize(ref _normalColors, i + 1);
-            Array.Resize(ref _hoverColors, i + 1);
-            _watchedGraphics[i] = graphic;
-            _normalColors[i] = normal;
-            _hoverColors[i] = hover;
-            graphic.color = normal;
+            if (graphic == null) return;
+            _graphics.Add(graphic);
+            _graphicNormal.Add(normal);
+            _graphicHover.Add(hover);
+            graphic.color = _hovering ? hover : normal;
         }
 
-        public void SetBaseColors(Color[] normalColors)
+        /// <summary>Register a <see cref="UiFactory.AddBorder"/> handle whose color should swap on hover.</summary>
+        public void WatchBorder(UiFactory.BorderHandle border, Color normal, Color hover)
         {
-            for (int i = 0; i < _watchedGraphics.Length && i < normalColors.Length; i++)
+            if (border == null) return;
+            _borders.Add(border);
+            _borderNormal.Add(normal);
+            _borderHover.Add(hover);
+            border.SetColor(_hovering ? hover : normal);
+        }
+
+        /// <summary>Re-baselines the non-hovered colors (e.g. a row became "selected").</summary>
+        public void SetBaseColors(params Color[] normalColors)
+        {
+            for (int i = 0; i < _graphics.Count && i < normalColors.Length; i++)
             {
-                _normalColors[i] = normalColors[i];
-                if (!_hovering)
-                    _watchedGraphics[i].color = normalColors[i];
+                _graphicNormal[i] = normalColors[i];
+                if (!_hovering && _graphics[i] != null)
+                    _graphics[i].color = normalColors[i];
             }
         }
 
         public void OnPointerEnter(PointerEventData eventData)
         {
             _hovering = true;
-            Apply(_hoverColors);
+            Apply(true);
         }
 
         public void OnPointerExit(PointerEventData eventData)
         {
             _hovering = false;
-            Apply(_normalColors);
+            Apply(false);
         }
 
         public void OnPointerClick(PointerEventData eventData)
         {
             if (eventData.button == PointerEventData.InputButton.Right)
                 RightClicked?.Invoke();
-            else
+            else if (eventData.button == PointerEventData.InputButton.Left)
                 Clicked?.Invoke();
         }
 
-        private void Apply(Color[] colors)
+        private void OnDisable()
         {
-            for (int i = 0; i < _watchedGraphics.Length; i++)
-                if (_watchedGraphics[i] != null)
-                    _watchedGraphics[i].color = colors[i];
+            // Pointer exit is not delivered when the object is hidden underneath the
+            // cursor, so a re-shown element would otherwise be stuck in hover colors.
+            if (!_hovering) return;
+            _hovering = false;
+            Apply(false);
+        }
+
+        private void Apply(bool hover)
+        {
+            for (int i = 0; i < _graphics.Count; i++)
+                if (_graphics[i] != null)
+                    _graphics[i].color = hover ? _graphicHover[i] : _graphicNormal[i];
+
+            for (int i = 0; i < _borders.Count; i++)
+                _borders[i].SetColor(hover ? _borderHover[i] : _borderNormal[i]);
         }
     }
 }
