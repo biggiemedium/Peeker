@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Peeker")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+903aea7310244c410399816f4da7d607319e7a2f")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+26e262f60f201f040c3ea381c5e3ca262c6494c3")]
 [assembly: System.Reflection.AssemblyProductAttribute("Peeker")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Peeker")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -201,6 +201,285 @@ namespace Peeker.UI.Internal
             return tmp;
         }
 
+        // ---- procedural shapes -------------------------------------------------
+        //
+        // The plugin ships no art, so every rounded corner in the menu comes from a
+        // texture generated here once and stretched through Image.Type.Sliced. The
+        // sprites are cached per shape and flagged HideAndDontSave, so a scene change
+        // can't collect them out from under a live canvas.
+
+        private static readonly Dictionary<int, Sprite> RoundedCache = new Dictionary<int, Sprite>();
+        private static readonly Dictionary<int, Sprite> RoundedTopCache = new Dictionary<int, Sprite>();
+        private static readonly Dictionary<int, Sprite> OutlineCache = new Dictionary<int, Sprite>();
+        private static Sprite _circle;
+        private static Sprite _triangle;
+
+        /// <summary>
+        /// Signed distance from a pixel centre to a rounded square of side <paramref name="side"/>;
+        /// negative inside, zero on the edge. Shading on 0.5-of-a-pixel of it is what gives the
+        /// generated corners their anti-aliasing. The two radii let the top and bottom halves
+        /// round differently — texture rows run bottom-up, so the high-y half is the top.
+        /// </summary>
+        private static float RoundedSdf(float px, float py, float side, float topRadius, float bottomRadius)
+        {
+            float half = side * 0.5f;
+            float radius = py >= half ? topRadius : bottomRadius;
+            float qx = Mathf.Abs(px - half) - (half - radius);
+            float qy = Mathf.Abs(py - half) - (half - radius);
+            float ox = Mathf.Max(qx, 0f);
+            float oy = Mathf.Max(qy, 0f);
+            return Mathf.Min(Mathf.Max(qx, qy), 0f) + Mathf.Sqrt(ox * ox + oy * oy) - radius;
+        }
+
+        private static float RoundedSdf(float px, float py, float side, float radius)
+            => RoundedSdf(px, py, side, radius, radius);
+
+        /// <summary>Filled rounded rectangle, 9-sliced so one texture serves every panel size.</summary>
+        public static Sprite RoundedSprite(int radius)
+        {
+            radius = Mathf.Clamp(radius, 1, 24);
+            if (RoundedCache.TryGetValue(radius, out Sprite cached) && cached != null) return cached;
+
+            int side = radius * 2 + 4;   // 4px of straight edge in the middle for the slicer to stretch
+            var pixels = new Color32[side * side];
+
+            for (int y = 0; y < side; y++)
+            for (int x = 0; x < side; x++)
+            {
+                float sd = RoundedSdf(x + 0.5f, y + 0.5f, side, radius);
+                pixels[y * side + x] = new Color32(255, 255, 255, (byte)(Mathf.Clamp01(0.5f - sd) * 255f));
+            }
+
+            Sprite sprite = Bake(pixels, side, radius + 1, "PeekerRounded" + radius);
+            RoundedCache[radius] = sprite;
+            return sprite;
+        }
+
+        /// <summary>
+        /// Rounded on the top two corners, square on the bottom two. This is what a title bar
+        /// needs: a fully rounded header laid over a fully rounded panel leaves two visible
+        /// notches where the body colour shows through the header's bottom corners.
+        /// </summary>
+        public static Sprite RoundedTopSprite(int radius)
+        {
+            radius = Mathf.Clamp(radius, 1, 24);
+            if (RoundedTopCache.TryGetValue(radius, out Sprite cached) && cached != null) return cached;
+
+            int side = radius * 2 + 4;
+            var pixels = new Color32[side * side];
+
+            for (int y = 0; y < side; y++)
+            for (int x = 0; x < side; x++)
+            {
+                float sd = RoundedSdf(x + 0.5f, y + 0.5f, side, radius, 0f);
+                pixels[y * side + x] = new Color32(255, 255, 255, (byte)(Mathf.Clamp01(0.5f - sd) * 255f));
+            }
+
+            // Border order is (left, bottom, right, top): only the top row of slices is tall.
+            Sprite sprite = Bake(pixels, side, new Vector4(radius + 1, 1f, radius + 1, radius + 1),
+                "PeekerRoundedTop" + radius);
+            RoundedTopCache[radius] = sprite;
+            return sprite;
+        }
+
+        /// <summary>Hollow rounded rectangle — the 1px stroke around panels, badges and swatches.</summary>
+        public static Sprite OutlineSprite(int radius, int thickness = 1)
+        {
+            radius = Mathf.Clamp(radius, 1, 24);
+            thickness = Mathf.Clamp(thickness, 1, radius);
+
+            int key = radius * 32 + thickness;
+            if (OutlineCache.TryGetValue(key, out Sprite cached) && cached != null) return cached;
+
+            int side = radius * 2 + 4;
+            var pixels = new Color32[side * side];
+
+            for (int y = 0; y < side; y++)
+            for (int x = 0; x < side; x++)
+            {
+                float sd = RoundedSdf(x + 0.5f, y + 0.5f, side, radius);
+                // Keep the band between the edge (sd = 0) and `thickness` inside it.
+                float a = Mathf.Clamp01(Mathf.Min(-sd, sd + thickness) + 0.5f);
+                pixels[y * side + x] = new Color32(255, 255, 255, (byte)(a * 255f));
+            }
+
+            Sprite sprite = Bake(pixels, side, radius + 1, "PeekerOutline" + radius + "x" + thickness);
+            OutlineCache[key] = sprite;
+            return sprite;
+        }
+
+        /// <summary>Solid disc, drawn unsliced — toggle knobs and status dots.</summary>
+        public static Sprite CircleSprite()
+        {
+            if (_circle != null) return _circle;
+
+            const int side = 32;
+            var pixels = new Color32[side * side];
+            const float r = side * 0.5f;
+
+            for (int y = 0; y < side; y++)
+            for (int x = 0; x < side; x++)
+            {
+                float dx = x + 0.5f - r, dy = y + 0.5f - r;
+                float a = Mathf.Clamp01(r - Mathf.Sqrt(dx * dx + dy * dy) + 0.5f);
+                pixels[y * side + x] = new Color32(255, 255, 255, (byte)(a * 255f));
+            }
+
+            _circle = Bake(pixels, side, 0f, "PeekerCircle");
+            return _circle;
+        }
+
+        /// <summary>Downward-pointing triangle; rotate the RectTransform 90° on Z for "collapsed".</summary>
+        public static Sprite TriangleSprite()
+        {
+            if (_triangle != null) return _triangle;
+
+            const int side = 24;
+            var pixels = new Color32[side * side];
+
+            for (int y = 0; y < side; y++)
+            {
+                // Texture rows run bottom-up, so row 0 is the apex and the top row is the base.
+                float halfWidth = (y / (float)(side - 1)) * (side * 0.5f);
+                for (int x = 0; x < side; x++)
+                {
+                    float dx = Mathf.Abs(x + 0.5f - side * 0.5f);
+                    float a = Mathf.Clamp01(halfWidth - dx + 0.5f);
+                    pixels[y * side + x] = new Color32(255, 255, 255, (byte)(a * 255f));
+                }
+            }
+
+            _triangle = Bake(pixels, side, 0f, "PeekerTriangle");
+            return _triangle;
+        }
+
+        private static Sprite Bake(Color32[] pixels, int side, float border, string name)
+            => Bake(pixels, side, new Vector4(border, border, border, border), name);
+
+        private static Sprite Bake(Color32[] pixels, int side, Vector4 border, string name)
+        {
+            var tex = new Texture2D(side, side, TextureFormat.RGBA32, false)
+            {
+                name = name,
+                hideFlags = HideFlags.HideAndDontSave,
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp,
+            };
+            tex.SetPixels32(pixels);
+            tex.Apply(false, false);
+
+            Sprite sprite = Sprite.Create(tex, new Rect(0, 0, side, side), new Vector2(0.5f, 0.5f), 100f, 0,
+                SpriteMeshType.FullRect, border);
+            sprite.name = name;
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+            return sprite;
+        }
+
+        /// <summary>Gives <paramref name="go"/> a rounded-rectangle Image (adding one if needed).</summary>
+        public static Image Rounded(GameObject go, Color color, int radius)
+        {
+            var img = go.GetComponent<Image>() ?? go.AddComponent<Image>();
+            img.sprite = RoundedSprite(radius);
+            img.type = Image.Type.Sliced;
+            img.pixelsPerUnitMultiplier = 1f;
+            img.color = color;
+            return img;
+        }
+
+        /// <summary>Same as <see cref="Rounded"/> but only the top two corners are rounded.</summary>
+        public static Image RoundedTop(GameObject go, Color color, int radius)
+        {
+            var img = go.GetComponent<Image>() ?? go.AddComponent<Image>();
+            img.sprite = RoundedTopSprite(radius);
+            img.type = Image.Type.Sliced;
+            img.pixelsPerUnitMultiplier = 1f;
+            img.color = color;
+            return img;
+        }
+
+        /// <summary>
+        /// Rounded fill added as an ignored, stretched child instead of on the node itself.
+        /// Needed wherever the node is a layout group whose *children* must draw on top of
+        /// the fill — a layout group's own Image always renders behind its children anyway,
+        /// but a shadow has to render behind the fill, and only a sibling can do that.
+        /// </summary>
+        public static Image RoundedBackground(Transform parent, Color color, int radius, string name = "Bg")
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+            StretchAll(go);
+            go.AddComponent<LayoutElement>().ignoreLayout = true;
+
+            var img = go.GetComponent<Image>();
+            img.sprite = RoundedSprite(radius);
+            img.type = Image.Type.Sliced;
+            img.pixelsPerUnitMultiplier = 1f;
+            img.color = color;
+            img.raycastTarget = true;   // the panel body must swallow clicks, not leak them to the game
+            return img;
+        }
+
+        /// <summary>1px rounded stroke laid over the parent's edge. Decoration only — never raycasts.</summary>
+        public static Image RoundedOutline(Transform parent, Color color, int radius, int thickness = 1)
+        {
+            var go = new GameObject("Outline", typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+            StretchAll(go);
+            go.AddComponent<LayoutElement>().ignoreLayout = true;
+
+            var img = go.GetComponent<Image>();
+            img.sprite = OutlineSprite(radius, thickness);
+            img.type = Image.Type.Sliced;
+            img.pixelsPerUnitMultiplier = 1f;
+            img.fillCenter = false;
+            img.color = color;
+            img.raycastTarget = false;
+            return img;
+        }
+
+        /// <summary>
+        /// Soft drop shadow: one oversized rounded rect behind everything else. Must be the
+        /// first child so it draws first — uGUI paints strictly in sibling order.
+        /// </summary>
+        public static Image Shadow(Transform parent, int radius, float alpha = 0.45f, float spread = 5f, float drop = 4f)
+        {
+            var go = new GameObject("Shadow", typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+            go.transform.SetAsFirstSibling();
+
+            var r = Rect(go);
+            r.anchorMin = Vector2.zero;
+            r.anchorMax = Vector2.one;
+            r.offsetMin = new Vector2(-spread, -spread - drop);
+            r.offsetMax = new Vector2(spread, spread - drop);
+            go.AddComponent<LayoutElement>().ignoreLayout = true;
+
+            var img = go.GetComponent<Image>();
+            img.sprite = RoundedSprite(radius + 3);
+            img.type = Image.Type.Sliced;
+            img.pixelsPerUnitMultiplier = 1f;
+            img.color = new Color(0f, 0f, 0f, alpha);
+            img.raycastTarget = false;
+            return img;
+        }
+
+        /// <summary>Unsliced sprite image sized by its LayoutElement or RectTransform (dots, arrows).</summary>
+        public static Image Glyph(Transform parent, string name, Sprite sprite, Color color, float size)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+
+            var r = Rect(go);
+            r.sizeDelta = new Vector2(size, size);
+
+            var img = go.GetComponent<Image>();
+            img.sprite = sprite;
+            img.type = Image.Type.Simple;
+            img.color = color;
+            img.raycastTarget = false;
+            return img;
+        }
+
         /// <summary>Live-updatable rectangle border built from up to 4 thin Images.</summary>
         public class BorderHandle
         {

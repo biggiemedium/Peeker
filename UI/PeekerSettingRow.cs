@@ -10,12 +10,16 @@ using Peeker.UI.Internal;
 namespace Peeker.UI
 {
     /// <summary>
-    /// One setting, one compact row inside a module's dropdown. Deliberately plain:
-    /// a label, a value on the right, and click/drag to change it. Returns a refresh
-    /// delegate so the owning panel can resync without rebuilding anything.
+    /// One setting, one compact row inside a module's settings tray. Every row is the
+    /// same shape — label on the left, control on the right — so a tray of mixed types
+    /// still scans as a single list. Returns a refresh delegate so the owning panel can
+    /// resync without rebuilding anything.
     /// </summary>
     public static class PeekerSettingRow
     {
+        private const float RowHeight = 17f;
+        private const int RowRadius = 3;
+
         public static Action Build(Transform parent, Setting setting)
         {
             if (setting.IsBoolSetting) return BuildBool(parent, setting);
@@ -26,37 +30,57 @@ namespace Peeker.UI
 
         // ---- shared chrome -------------------------------------------------
 
-        /// <summary>Label on the left, value on the right, whole row clickable.</summary>
-        private static GameObject SimpleRow(Transform parent, Setting setting, out TextMeshProUGUI value,
-            out HoverElement hover)
+        /// <summary>Label on the left, room for a control on the right, whole row clickable.</summary>
+        private static GameObject SimpleRow(Transform parent, Setting setting, out HoverElement hover)
         {
-            var row = UiFactory.Panel(parent, "S_" + setting.Name, Color.clear);
-            UiFactory.HRow(row, 4, UiFactory.Padding(0, 2, 0, 2), TextAnchor.MiddleLeft, true, true, false, true);
-            UiFactory.Fixed(row, height: 17f);
+            var row = UiFactory.Node(parent, "S_" + setting.Name);
+            Image bg = UiFactory.Rounded(row, Color.clear, RowRadius);
+            UiFactory.HRow(row, 6, UiFactory.Padding(3, 0, 3, 0), TextAnchor.MiddleLeft, true, true, false, false);
+            UiFactory.Fixed(row, height: RowHeight);
 
-            var label = UiFactory.Text(row.transform, "Label", setting.Name, 10, PeekerColors.MonoDim);
+            TextMeshProUGUI label = UiFactory.Text(row.transform, "Label", setting.Name, 9.5f, PeekerColors.MonoDim);
             UiFactory.Flexible(label.gameObject, 1, 0);
 
-            value = UiFactory.Text(row.transform, "Value", "", 10, PeekerColors.KeybindLabel,
-                TextAlignmentOptions.MidlineRight);
-
             hover = row.AddComponent<HoverElement>();
-            hover.WatchColor(row.GetComponent<Image>(), Color.clear, PeekerColors.RowHoverBg);
+            hover.WatchColor(bg, Color.clear, PeekerColors.RowHoverBg);
+            hover.WatchColor(label, PeekerColors.MonoDim, PeekerColors.KeybindLabel);
             return row;
+        }
+
+        /// <summary>Hides or shows a row according to its visibility predicate.</summary>
+        private static void ApplyVisibility(GameObject row, Setting setting)
+        {
+            if (row.activeSelf != setting.IsVisible) row.SetActive(setting.IsVisible);
         }
 
         // ---- bool ----------------------------------------------------------
 
         private static Action BuildBool(Transform parent, Setting setting)
         {
-            GameObject row = SimpleRow(parent, setting, out TextMeshProUGUI value, out HoverElement hover);
+            GameObject row = SimpleRow(parent, setting, out HoverElement hover);
+
+            // Pill track. Radius is capped at height/2 - 1 so the 9-slice borders still
+            // fit inside the rect; anything larger and Unity squashes the corners.
+            var track = UiFactory.Node(row.transform, "Track");
+            Image trackImage = UiFactory.Rounded(track, PeekerColors.SwitchOffBg, 5);
+            trackImage.raycastTarget = false;
+            UiFactory.Fixed(track, 24f, 12f);
+
+            Image knob = UiFactory.Glyph(track.transform, "Knob", UiFactory.CircleSprite(),
+                PeekerColors.SwitchOffKnob, 10f);
+            RectTransform knobRect = knob.rectTransform;
+            knobRect.anchorMin = new Vector2(0f, 0.5f);
+            knobRect.anchorMax = new Vector2(0f, 0.5f);
+            knobRect.pivot = new Vector2(0f, 0.5f);
+            knobRect.sizeDelta = new Vector2(10f, 10f);
 
             void Refresh()
             {
                 bool on = setting.BoxedValue is bool b && b;
-                UiFactory.SetText(value, on ? "ON" : "OFF");
-                value.color = on ? PeekerColors.Accent : PeekerColors.NameOff;
-                if (row.activeSelf != setting.IsVisible) row.SetActive(setting.IsVisible);
+                trackImage.color = on ? PeekerColors.Accent : PeekerColors.SwitchOffBg;
+                knob.color = on ? PeekerColors.SwitchOnKnob : PeekerColors.SwitchOffKnob;
+                knobRect.anchoredPosition = new Vector2(on ? 13f : 1f, 0f);
+                ApplyVisibility(row, setting);
             }
 
             hover.Clicked = () =>
@@ -74,26 +98,40 @@ namespace Peeker.UI
         private static Action BuildEnum(Transform parent, Setting setting)
         {
             List<object> options = ResolveOptions(setting);
-            GameObject row = SimpleRow(parent, setting, out TextMeshProUGUI value, out HoverElement hover);
+            GameObject row = SimpleRow(parent, setting, out HoverElement hover);
+
+            // The value reads as a chip so it looks pressable, unlike a bare label.
+            var chip = UiFactory.Node(row.transform, "Chip");
+            Image chipBg = UiFactory.Rounded(chip, PeekerColors.ButtonBg, RowRadius);
+            chipBg.raycastTarget = false;
+            UiFactory.HRow(chip, 0, UiFactory.Padding(6, 1, 6, 1), TextAnchor.MiddleCenter, true, true, false, false);
+
+            TextMeshProUGUI value = UiFactory.Text(chip.transform, "Value", "", 9f, PeekerColors.KeybindLabel,
+                TextAlignmentOptions.Midline, letterSpacing: 0.05f);
 
             void Refresh()
             {
                 object current = setting.BoxedValue;
                 UiFactory.SetText(value, current == null ? "-" : current.ToString().ToUpperInvariant());
-                if (row.activeSelf != setting.IsVisible) row.SetActive(setting.IsVisible);
+                ApplyVisibility(row, setting);
             }
 
-            hover.Clicked = () =>
+            void Step(int direction)
             {
                 if (options.Count == 0) return;
 
                 int i = options.FindIndex(o => Equals(o, setting.BoxedValue));
-                object next = options[(i + 1) % options.Count];   // -1 wraps to 0, which is what we want
+                if (i < 0) i = 0;                                        // unknown value: start from the top
+                int next = ((i + direction) % options.Count + options.Count) % options.Count;
 
-                try { setting.BoxedValue = next; }
+                try { setting.BoxedValue = options[next]; }
                 catch (Exception ex) { Plugin.Log?.LogWarning("[Peeker] " + setting.Name + ": " + ex.Message); }
                 Refresh();
-            };
+            }
+
+            hover.WatchColor(chipBg, PeekerColors.ButtonBg, PeekerColors.ButtonHoverBg);
+            hover.Clicked = () => Step(1);
+            hover.RightClicked = () => Step(-1);
 
             Refresh();
             return Refresh;
@@ -113,35 +151,41 @@ namespace Peeker.UI
 
         private static Action BuildColor(Transform parent, Setting setting)
         {
-            GameObject row = SimpleRow(parent, setting, out TextMeshProUGUI value, out HoverElement hover);
-            value.gameObject.SetActive(false);   // a swatch reads better than a hex string here
+            GameObject row = SimpleRow(parent, setting, out HoverElement hover);
 
-            var swatch = new GameObject("Swatch", typeof(RectTransform), typeof(Image));
-            swatch.transform.SetParent(row.transform, false);
-            UiFactory.Fixed(swatch, 22f, 10f);
-            var img = swatch.GetComponent<Image>();
-            img.raycastTarget = false;
+            var swatch = UiFactory.Node(row.transform, "Swatch");
+            Image fill = UiFactory.Rounded(swatch, Color.white, RowRadius);
+            fill.raycastTarget = false;
+            UiFactory.Fixed(swatch, 26f, 11f);
+            UiFactory.RoundedOutline(swatch.transform, PeekerColors.SwatchRing, RowRadius);
 
             void Refresh()
             {
-                img.color = ToColor(setting.BoxedValue);
-                if (row.activeSelf != setting.IsVisible) row.SetActive(setting.IsVisible);
+                Color c = ToColor(setting.BoxedValue);
+                c.a = 1f;                     // the swatch shows hue, not the setting's alpha
+                fill.color = c;
+                ApplyVisibility(row, setting);
             }
 
-            // Bare bones: cycle the preset swatches. A real picker can come later.
-            hover.Clicked = () =>
+            void Step(int direction)
             {
                 Color[] presets = PeekerColors.DefaultSwatches;
                 Color current = ToColor(setting.BoxedValue);
 
                 int i = Array.FindIndex(presets, c => Approximately(c, current));
-                Color next = presets[(i + 1) % presets.Length];
-                next.a = current.a;
+                if (i < 0) i = 0;
+                int next = ((i + direction) % presets.Length + presets.Length) % presets.Length;
+
+                Color picked = presets[next];
+                picked.a = current.a;
 
                 Type t = Nullable.GetUnderlyingType(setting.ValueType) ?? setting.ValueType;
-                setting.BoxedValue = t == typeof(Color32) ? (object)(Color32)next : next;
+                setting.BoxedValue = t == typeof(Color32) ? (object)(Color32)picked : picked;
                 Refresh();
-            };
+            }
+
+            hover.Clicked = () => Step(1);
+            hover.RightClicked = () => Step(-1);
 
             Refresh();
             return Refresh;
@@ -164,50 +208,70 @@ namespace Peeker.UI
             bool integral = IsIntegral(setting.ValueType);
 
             var row = UiFactory.Node(parent, "S_" + setting.Name);
-            UiFactory.HitArea(row);                     // the whole row is the drag surface
-            UiFactory.VCol(row, 1, UiFactory.Padding(0, 2, 0, 3), TextAnchor.UpperLeft, true, true, true, false);
+            Image rowBg = UiFactory.Rounded(row, Color.clear, RowRadius);   // also the drag surface
+            UiFactory.VCol(row, 3, UiFactory.Padding(3, 2, 3, 4), TextAnchor.UpperLeft, true, true, true, false);
 
             var top = UiFactory.Node(row.transform, "Top");
             UiFactory.HRow(top, 4, null, TextAnchor.MiddleLeft, true, true, false, false);
-            UiFactory.Fixed(top, height: 13f);
+            UiFactory.Fixed(top, height: 12f);
 
-            var label = UiFactory.Text(top.transform, "Label", setting.Name, 10, PeekerColors.MonoDim);
+            TextMeshProUGUI label = UiFactory.Text(top.transform, "Label", setting.Name, 9.5f, PeekerColors.MonoDim);
             UiFactory.Flexible(label.gameObject, 1, 0);
-            var value = UiFactory.Text(top.transform, "Value", "", 10, PeekerColors.KeybindLabel,
+            TextMeshProUGUI value = UiFactory.Text(top.transform, "Value", "", 9.5f, PeekerColors.KeybindLabel,
                 TextAlignmentOptions.MidlineRight);
 
-            var track = UiFactory.Panel(row.transform, "Track", PeekerColors.TrackBg);
-            UiFactory.Fixed(track, height: 3f);
+            // A 4px bar is too thin for rounded 9-slicing to read, so track and fill are
+            // plain quads. At this size the square ends are invisible anyway.
+            GameObject track = UiFactory.Panel(row.transform, "Track", PeekerColors.TrackBg);
             track.GetComponent<Image>().raycastTarget = false;
+            UiFactory.Fixed(track, height: 4f);
 
-            var fill = UiFactory.Panel(track.transform, "Fill", PeekerColors.Accent);
+            GameObject fill = UiFactory.Panel(track.transform, "Fill", PeekerColors.Accent);
             var fillRect = (RectTransform)fill.transform;
             fillRect.anchorMin = Vector2.zero;
-            fillRect.anchorMax = new Vector2(0, 1);
-            fillRect.pivot = new Vector2(0, 0.5f);
+            fillRect.anchorMax = new Vector2(0f, 1f);
+            fillRect.pivot = new Vector2(0f, 0.5f);
             fillRect.offsetMin = Vector2.zero;
             fillRect.offsetMax = Vector2.zero;
             fill.GetComponent<Image>().raycastTarget = false;
 
+            Image knob = UiFactory.Glyph(track.transform, "Knob", UiFactory.CircleSprite(), PeekerColors.Accent, 8f);
+            RectTransform knobRect = knob.rectTransform;
+            knobRect.anchorMin = new Vector2(0f, 0.5f);
+            knobRect.anchorMax = new Vector2(0f, 0.5f);
+            knobRect.pivot = new Vector2(0.5f, 0.5f);
+            knobRect.sizeDelta = new Vector2(8f, 8f);
+
+            var hover = row.AddComponent<HoverElement>();
+            hover.WatchColor(rowBg, Color.clear, PeekerColors.RowHoverBg);
+            hover.WatchColor(label, PeekerColors.MonoDim, PeekerColors.KeybindLabel);
+
             void Refresh()
             {
                 double v = ToDouble(setting.BoxedValue);
-                (double min, double max) = Range(setting, integral);
+                double min, max;
+                Range(setting, integral, out min, out max);
                 float t = max > min ? Mathf.Clamp01((float)((v - min) / (max - min))) : 0f;
 
                 // Only write when it moved: assigning anchors dirties the layout, and
-                // this refresher runs every frame the dropdown is open.
+                // this refresher runs every frame the tray is open.
                 if (!Mathf.Approximately(fillRect.anchorMax.x, t))
-                    fillRect.anchorMax = new Vector2(t, 1);
+                {
+                    fillRect.anchorMax = new Vector2(t, 1f);
+                    knobRect.anchorMin = new Vector2(t, 0.5f);
+                    knobRect.anchorMax = new Vector2(t, 0.5f);
+                    knobRect.anchoredPosition = Vector2.zero;
+                }
 
                 UiFactory.SetText(value, integral ? v.ToString("0") : v.ToString(Math.Abs(v) >= 10 ? "0.#" : "0.##"));
-                if (row.activeSelf != setting.IsVisible) row.SetActive(setting.IsVisible);
+                ApplyVisibility(row, setting);
             }
 
             var drag = row.AddComponent<NormalizedDragArea>();
             drag.Changed = (x, _) =>
             {
-                (double min, double max) = Range(setting, integral);
+                double min, max;
+                Range(setting, integral, out min, out max);
                 double raw = min + x * (max - min);
 
                 try
@@ -225,12 +289,11 @@ namespace Peeker.UI
             return Refresh;
         }
 
-        private static (double min, double max) Range(Setting setting, bool integral)
+        private static void Range(Setting setting, bool integral, out double min, out double max)
         {
-            double min = setting.BoxedMin != null ? Convert.ToDouble(setting.BoxedMin) : 0d;
-            double max = setting.BoxedMax != null ? Convert.ToDouble(setting.BoxedMax) : (integral ? 100d : 1d);
+            min = setting.BoxedMin != null ? Convert.ToDouble(setting.BoxedMin) : 0d;
+            max = setting.BoxedMax != null ? Convert.ToDouble(setting.BoxedMax) : (integral ? 100d : 1d);
             if (max <= min) max = min + 1d;
-            return (min, max);
         }
 
         private static double ToDouble(object boxed)

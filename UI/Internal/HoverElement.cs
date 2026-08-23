@@ -57,6 +57,17 @@ namespace Peeker.UI.Internal
             }
         }
 
+        /// <summary>Re-baselines the hovered colors, the counterpart to <see cref="SetBaseColors"/>.</summary>
+        public void SetHoverColors(params Color[] hoverColors)
+        {
+            for (int i = 0; i < _graphics.Count && i < hoverColors.Length; i++)
+            {
+                _graphicHover[i] = hoverColors[i];
+                if (_hovering && _graphics[i] != null)
+                    _graphics[i].color = hoverColors[i];
+            }
+        }
+
         public void OnPointerEnter(PointerEventData eventData)
         {
             _hovering = true;
