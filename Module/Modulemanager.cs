@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using BepInEx.Logging;
 using Peeker.Module.Impl;
+using Peeker.Module.Impl.Combat;
 using Peeker.Module.Impl.Notifications;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -33,11 +34,14 @@ namespace Peeker.Module
             Register(new SpeedModule());
 
             // Combat
+            Register(new AimAssistModule());
+            Register(new SurvivalModule());
 
             // Notification
             Register(new SpawnNotificationModule());
+            Register(new ProximityNotificationModule());
 
-            
+
 
             SortModules();
         }
